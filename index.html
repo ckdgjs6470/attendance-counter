@@ -3,70 +3,82 @@
 <head>
   <meta charset="UTF-8">
   <title>대면예배·기도자 동그라미 카운터</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body{font-family:system-ui,sans-serif;margin:0;padding:2rem;background:#f9fafb;color:#111827}
-    h1{font-size:1.5rem;margin-bottom:1rem}
-    textarea{width:100%;min-height:220px;padding:1rem;border:1px solid #d1d5db;border-radius:.5rem;resize:vertical;background:#fff;box-sizing:border-box}
-    button{margin-top:1rem;padding:.75rem 1.5rem;border:none;border-radius:.5rem;font-size:1rem;cursor:pointer;background:#2563eb;color:#fff}
-    button:hover{background:#1d4ed8}
-    .results{margin-top:2rem;background:#fff;padding:1rem;border-radius:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.1);white-space:pre-wrap}
-    .notice{font-size:.9rem;color:#6b7280}
+    body{font-family:system-ui, sans-serif; margin:0; padding:2rem; background:#f9fafb; color:#111827;}
+    h1{font-size:1.5rem; margin-bottom:1rem;}
+    textarea{width:100%; min-height:220px; padding:1rem; border:1px solid #d1d5db; border-radius:0.5rem; resize:vertical; background:#fff; box-sizing:border-box;}
+    button{margin-top:1rem; padding:0.75rem 1.5rem; border:none; border-radius:0.5rem; font-size:1rem; cursor:pointer; background:#2563eb; color:#fff;}
+    button:hover{background:#1d4ed8;}
+    .results{margin-top:2rem; background:#fff; padding:1rem; border-radius:0.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.1); white-space:pre-wrap;}
+    .notice{font-size:0.9rem; color:#6b7280;}
   </style>
 </head>
 <body>
-<h1>🕊️ 3팀 예배/기도자 ⭕️ 카운터</h1>
-<p>점검표를 붙여넣고 <strong>“카운트!”</strong>를 누르면 결과가 출력됩니다.</p>
-<p class="notice">※ 결과 예시<br>
-1. 대면예배<br>8시반 00명 …<br>2. 기도자<br>주일 00명 …<br>총합<br>대면예배 00명<br>기도자 00명<br>전체 00명</p>
+  <h1>🕊️ 3팀 예배/기도자 ⭕️ 카운터</h1>
+  <p>점검표 텍스트를 붙여넣고 <strong>"카운트!"</strong>를 누르면 아래 형식으로 결과가 출력됩니다.</p>
+  <p class="notice">※ 형식 예시 ↓\n1. 대면예배\n8시반 00명\n...\n2. 기도자\n주일 00명\n월요일 00명\n총합\n대면예배 00명\n기도자 00명\n전체 00명</p>
 
-<textarea id="input" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
-<button id="countBtn">카운트!</button>
-<div id="output" class="results" style="display:none;"></div>
+  <textarea id="input" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
+  <button id="countBtn">카운트!</button>
+  <div id="output" class="results" style="display:none;"></div>
 
 <script>
 const btn=document.getElementById('countBtn');
-const out=document.getElementById('output');
+const output=document.getElementById('output');
 btn.addEventListener('click',()=>{
   const text=document.getElementById('input').value;
   if(!text.trim())return;
 
-  const face={'8시반':0,'12시':0,'15시반':0,'19시반':0,'월10시':0,'월20시':0};
-  const pray={'주일':0,'월요일':0};
-  let sec='',sub='',mon=false;
+  const lines=text.split(/\n/);
+  let section='';
+  let subSection='';
+  let isMonday=false;
 
-  text.split(/\\n/).forEach(raw=>{
+  const faceTimes={
+    '8시반':0,'12시':0,'15시반':0,'19시반':0,'월10시':0,'월20시':0
+  };
+  const prayTimes={'주일':0,'월요일':0};
+
+  lines.forEach(raw=>{
     const line=raw.trim();
-    if(/^1\\./.test(line)&&line.includes('대면')){sec='face';mon=false;sub='';return;}
-    if(/^2\\./.test(line)&&line.includes('기도자')){sec='pray';sub='';return;}
+    if(/^1\./.test(line)&&line.includes('대면')){section='대면';subSection='';isMonday=false;return;}
+    if(/^2\./.test(line)&&line.includes('기도자')){section='기도자';subSection='';return;}
 
-    if(sec==='face'){
-      if(line.startsWith('* 월요일')){mon=true;return;}
-      const m=line.match(/-\\s*(\\d{1,2}시(?:반)?)/);
-      if(m){sub=m[1];if(mon&&/^(10|20)시$/.test(sub))sub='월'+sub;return;}
-      const c=(line.match(/⭕️/g)||[]).length;
-      if(c&&sub&&face[sub]!=null)face[sub]+=c;
+    if(section==='대면'){
+      if(line.startsWith('* 월요일')){isMonday=true;return;}
+      const tMatch=line.match(/-\s*(\d{1,2}시(?:반)?)/);
+      if(tMatch){
+        subSection=tMatch[1];
+        if(isMonday && (subSection==='10시'||subSection==='20시')) subSection='월'+subSection;
+        return;
+      }
+      const circles=(line.match(/⭕️/g)||[]).length;
+      if(circles>0 && subSection && faceTimes.hasOwnProperty(subSection)) faceTimes[subSection]+=circles;
     }
-    if(sec==='pray'){
-      if(line.startsWith('- 주일')){sub='주일';return;}
-      if(line.startsWith('- 월요일')){sub='월요일';return;}
-      const c=(line.match(/⭕️/g)||[]).length;
-      if(c&&sub&&pray[sub]!=null)pray[sub]+=c;
+    else if(section==='기도자'){
+      if(line.startsWith('- 주일')){subSection='주일';return;}
+      if(line.startsWith('- 월요일')){subSection='월요일';return;}
+      const circles=(line.match(/⭕️/g)||[]).length;
+      if(circles>0 && subSection && prayTimes.hasOwnProperty(subSection)) prayTimes[subSection]+=circles;
     }
   });
 
-  const ft=Object.values(face).reduce((a,b)=>a+b,0);
-  const pt=Object.values(pray).reduce((a,b)=>a+b,0);
-  const total=ft+pt;
+  const faceTotal=Object.values(faceTimes).reduce((a,b)=>a+b,0);
+  const prayTotal=Object.values(prayTimes).reduce((a,b)=>a+b,0);
+  const grandTotal=faceTotal+prayTotal;
 
-  let res='1. 대면예배\\n';
-  ['8시반','12시','15시반','19시반','월10시','월20시']
-    .forEach(t=>res+=`${t} ${face[t]}명\\n`);
-  res+='\\n2. 기도자\\n';
-  ['주일','월요일'].forEach(t=>res+=`${t} ${pray[t]}명\\n`);
-  res+=`\\n총합\\n대면예배 ${ft}명\\n기도자 ${pt}명\\n전체 ${total}명`;
-  out.textContent=res; out.style.display='block';
+  let result='1. 대면예배\n';
+  ['8시반','12시','15시반','19시반','월10시','월20시'].forEach(t=>{result+=`${t} ${faceTimes[t]}명\n`;});
+  result+='\n2. 기도자\n';
+  ['주일','월요일'].forEach(t=>{result+=`${t} ${prayTimes[t]}명\n`;});
+  result+='\n총합\n';
+  result+=`대면예배 ${faceTotal}명\n기도자 ${prayTotal}명\n전체 ${grandTotal}명`;
+
+  output.textContent=result;
+  output.style.display='block';
 });
 </script>
 </body>
 </html>
+
