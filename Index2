@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>대면예배·기도자 동그라미 카운터</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:system-ui, sans-serif; margin:0; padding:2rem; background:#f9fafb; color:#111827;}
+    h1{font-size:1.5rem; margin-bottom:1rem;}
+    textarea{width:100%; min-height:220px; padding:1rem; border:1px solid #d1d5db; border-radius:0.5rem; resize:vertical; background:#fff; box-sizing:border-box;}
+    button{margin-top:1rem; padding:0.75rem 1.5rem; border:none; border-radius:0.5rem; font-size:1rem; cursor:pointer; background:#2563eb; color:#fff;}
+    button:hover{background:#1d4ed8;}
+    .results{margin-top:2rem; background:#fff; padding:1rem; border-radius:0.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.1); white-space:pre-wrap;}
+    .notice{font-size:0.9rem; color:#6b7280;}
+  </style>
+</head>
+<body>
+  <h1>🕊️ 3팀 예배/기도자 ⭕️ 카운터</h1>
+  <p>점검표 텍스트를 붙여넣고 <strong>"카운트!"</strong>를 누르면 아래 형식으로 결과가 출력됩니다.</p>
+  <p class="notice">※ 형식 예시 ↓
+1. 대면예배
+8시반 00명(이름1 이름2)
+... 총합엔 이름 없음</p>
+
+  <textarea id="input" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
+  <button id="countBtn">카운트!</button>
+  <div id="output" class="results" style="display:none;"></div>
+
+<script>
+const btn = document.getElementById('countBtn');
+const output = document.getElementById('output');
+btn.addEventListener('click', () => {
+  // 입력 텍스트에서 VS16 제거
+  let text = document.getElementById('input').value.replace(/\uFE0F/g, '');
+  if (!text.trim()) return;
+
+  // 초기 데이터 구조
+  const faceTimes = { '8시반': 0, '12시': 0, '15시반': 0, '19시반': 0, '월10시': 0, '월20시': 0 };
+  const faceNames = { '8시반': [], '12시': [], '15시반': [], '19시반': [], '월10시': [], '월20시': [] };
+  const prayTimes = { '주일': 0, '월요일': 0 };
+  const prayNames = { '주일': [], '월요일': [] };
+
+  let section = '';
+  let currentTime = '';
+  let isMonday = false;
+
+  text.split(/\n/).forEach(raw => {
+    const line = raw.trim();
+    // 섹션 전환
+    if (/^1\./.test(line) && line.includes('대면')) { section = 'face'; isMonday = false; currentTime = ''; return; }
+    if (/^2\./.test(line) && line.includes('기도자')) { section = 'pray'; currentTime = ''; return; }
+
+    if (section === 'face') {
+      if (line.startsWith('* 월요일')) { isMonday = true; return; }
+      // 시간 헤더
+      const tMatch = line.match(/-\s*(\d{1,2}시(?:반)?)/);
+      if (tMatch) {
+        currentTime = tMatch[1];
+        if (isMonday && /^(10|20)시$/.test(currentTime)) currentTime = '월' + currentTime;
+        return;
+      }
+      // 동그라미 개수
+      const circles = (line.match(/⭕/g) || []).length;
+      if (circles > 0 && currentTime && faceTimes.hasOwnProperty(currentTime)) {
+        faceTimes[currentTime] += circles;
+        // 이름 추출: + 기호 앞뒤 관계없이 카운트 전 한글 이름만 추출
+        const namePattern = /([가-힣]+)(?:\([^)]*\))*(?=\+?⭕)/g;
+        let m;
+        while ((m = namePattern.exec(line)) !== null) {
+          faceNames[currentTime].push(m[1]);
+        }
+      }
+    }
+    else if (section === 'pray') {
+      if (line.startsWith('- 주일')) { currentTime = '주일'; return; }
+      if (line.startsWith('- 월요일')) { currentTime = '월요일'; return; }
+      const circles = (line.match(/⭕/g) || []).length;
+      if (circles > 0 && currentTime && prayTimes.hasOwnProperty(currentTime)) {
+        prayTimes[currentTime] += circles;
+        const namePattern = /(?:\+)*([가-힣]+)(?:\+)*(?=⭕)/g;
+        let m;
+        while ((m = namePattern.exec(line)) !== null) {
+          prayNames[currentTime].push(m[1]);
+        }
+      }
+    }
+  });
+
+  // 총합 계산
+  const faceTotal = Object.values(faceTimes).reduce((a, b) => a + b, 0);
+  const prayTotal = Object.values(prayTimes).reduce((a, b) => a + b, 0);
+  const grandTotal = faceTotal + prayTotal;
+
+  // 결과 포맷
+  let result = '1. 대면예배\n';
+  Object.keys(faceTimes).forEach(time => {
+    const count = faceTimes[time];
+    const names = faceNames[time].join(' ');
+    result += `${time} ${count}명${names ? `(${names})` : ''}\n`;
+  });
+
+  result += '\n2. 기도자\n';
+  Object.keys(prayTimes).forEach(time => {
+    const count = prayTimes[time];
+    const names = prayNames[time].join(' ');
+    result += `${time} ${count}명${names ? `(${names})` : ''}\n`;
+  });
+
+  result += `\n총합\n대면예배 ${faceTotal}명\n기도자 ${prayTotal}명\n전체 ${grandTotal}명`;
+
+  output.textContent = result;
+  output.style.display = 'block';
+});
+</script>
+</body>
+</html>
